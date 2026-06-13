@@ -14,6 +14,7 @@ import { getCurrentTimer, getCurrentPlayer } from '../lib/gameUtils'
 export default function Join() {
   const router = useRouter()
   const { roomCode: urlCode } = router.query
+  const urlReady = router.isReady
   const { connected } = useSocket()
   const {
     room, playerId,
@@ -78,6 +79,17 @@ export default function Join() {
       setAnswerResult({ correct: result.correct || false, points: result.pointsEarned || 0 })
       setCurrentStreak(result.correct ? (s) => s + 1 : 0)
     }
+  }
+
+  if (!urlReady) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }} className="text-5xl mb-4">🎲</motion.div>
+          <p className="text-white/30 text-sm">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!urlCode) {
