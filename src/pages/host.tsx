@@ -10,7 +10,7 @@ import QuestionCard from '../components/game/QuestionCard'
 import ScoreBoard from '../components/game/ScoreBoard'
 import SabotagePanel from '../components/game/SabotagePanel'
 import StreakEffect from '../components/game/StreakEffect'
-import { useSocket, useGameRoom, getSocket } from '../hooks/useSocket'
+import { useSocket, useGameRoom } from '../hooks/useSocket'
 import { useTimer } from '../hooks/useTimer'
 import { getCurrentTimer, getCurrentPlayer } from '../lib/gameUtils'
 
@@ -72,18 +72,13 @@ export default function Host() {
     setGameMode(mode)
     setConnecting(true)
 
-    const s = getSocket()
-    if (!s?.connected) {
-      await new Promise<void>((resolve) => {
-        const check = setInterval(() => {
-          if (getSocket()?.connected) { clearInterval(check); resolve() }
-        }, 100)
-        setTimeout(() => clearInterval(check), 8000)
-      })
+    try {
+      const result = await createRoom(playerName.trim(), mode)
+      if (result?.success) setShowModeSelect(false)
+    } catch (e) {
+      console.error('Failed to create room:', e)
     }
 
-    const result = await createRoom(playerName.trim(), mode)
-    if (result.success) setShowModeSelect(false)
     setConnecting(false)
     creatingRef.current = false
   }, [playerName, createRoom])
