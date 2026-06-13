@@ -16,6 +16,12 @@ import {
   endGame,
 } from '../../lib/gameLogic'
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
+
 interface SocketServer extends HTTPServer {
   io?: SocketIOServer
 }
@@ -35,7 +41,6 @@ export default function SocketHandler(req: NextApiRequest, res: NextApiResponseW
   }
 
   const io = new SocketIOServer(res.socket.server, {
-    path: '/api/socket',
     cors: {
       origin: '*',
       methods: ['GET', 'POST'],

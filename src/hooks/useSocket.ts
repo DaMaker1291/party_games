@@ -20,7 +20,6 @@ export function useSocket() {
     }
 
     const s = io({
-      path: '/api/socket',
       transports: ['websocket', 'polling'],
     })
 
