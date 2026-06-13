@@ -1,8 +1,8 @@
 ---
 title: Party Games
 emoji: 🎉
-colorFrom: "#ff2d95"
-colorTo: "#00d4ff"
+colorFrom: pink
+colorTo: blue
 sdk: docker
 pinned: false
 ---
