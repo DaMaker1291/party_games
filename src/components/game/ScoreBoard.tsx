@@ -4,61 +4,97 @@ import { Player } from '../../lib/types'
 interface ScoreBoardProps {
   players: Player[]
   currentPlayerId?: string
-  showHeader?: boolean
+  compact?: boolean
 }
 
-export default function ScoreBoard({ players, currentPlayerId, showHeader = true }: ScoreBoardProps) {
+export default function ScoreBoard({ players, currentPlayerId, compact = false }: ScoreBoardProps) {
   const sorted = [...players].sort((a, b) => b.score - a.score)
 
   return (
     <div className="w-full">
-      {showHeader && (
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-white/40 uppercase tracking-wider">Players</h3>
-          <span className="text-xs text-white/30">{players.length} players</span>
-        </div>
-      )}
       <div className="flex flex-col gap-2">
         <AnimatePresence>
           {sorted.map((player, index) => {
             const isCurrent = player.id === currentPlayerId
-            const isFirst = index === 0 && player.score > 0
+            const rank = index + 1
+            const rankColor = rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-gray-300' : rank === 3 ? 'text-amber-600' : 'text-white/30'
 
             return (
               <motion.div
                 key={player.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
                 className={`
-                  flex items-center justify-between p-3 rounded-xl transition-all duration-200
-                  ${isCurrent ? 'bg-neon-blue/10 border border-neon-blue/30' : 'bg-dark-700/50 border border-white/5'}
+                  relative rounded-2xl transition-all duration-300 overflow-hidden
+                  ${isCurrent ? 'bg-neon-blue/10 border border-neon-blue/30 shadow-lg shadow-neon-blue/10' : 'bg-white/[0.03] border border-white/[0.06]'}
                   ${!player.isAlive ? 'opacity-40' : ''}
                 `}
               >
-                <div className="flex items-center gap-3">
-                  <span className={`text-sm font-bold w-6 ${isFirst ? 'text-neon-yellow' : 'text-white/30'}`}>
-                    {isFirst ? '👑' : `#${index + 1}`}
-                  </span>
-                  <div>
-                    <span className="font-bold text-sm">
-                      {player.name}
-                      {!player.isAlive && (
-                        <span className="text-red-400 text-xs ml-2">💀</span>
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`
+                      flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold
+                      ${rank <= 3 ? 'bg-gradient-to-br from-yellow-400/20 to-orange-400/20' : 'bg-white/5'}
+                      ${rankColor}
+                    `}>
+                      {rank <= 3 ? ['👑', '🥈', '🥉'][rank - 1] : `#${rank}`}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm truncate">
+                          {player.name}
+                        </span>
+                        {isCurrent && (
+                          <motion.span
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="text-[10px] font-bold text-neon-blue bg-neon-blue/10 px-2 py-0.5 rounded-full"
+                          >
+                            NOW
+                          </motion.span>
+                        )}
+                        {!player.isAlive && (
+                          <span className="text-red-400 text-xs">💀</span>
+                        )}
+                      </div>
+                      {!compact && (
+                        <div className="flex gap-1 mt-1.5">
+                          {Array.from({ length: player.lives }).map((_, i) => (
+                            <motion.span
+                              key={i}
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ delay: i * 0.1 }}
+                              className="text-xs"
+                            >
+                              ❤️
+                            </motion.span>
+                          ))}
+                        </div>
                       )}
-                    </span>
-                    <div className="flex gap-1 mt-1">
-                      {Array.from({ length: player.lives }).map((_, i) => (
-                        <span key={i} className="text-xs">❤️</span>
-                      ))}
                     </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-lg font-bold gradient-text">{player.score}</span>
-                  {player.streak > 1 && (
-                    <div className="text-xs text-neon-orange font-bold">🔥 x{player.streak}</div>
-                  )}
+                  <div className="flex-shrink-0 text-right ml-4">
+                    <motion.span
+                      key={player.score}
+                      initial={{ scale: 1.3, opacity: 0.5 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className={`text-lg font-extrabold ${rank === 1 ? 'gradient-text-gold' : rank <= 3 ? 'text-white' : 'text-white/50'}`}
+                    >
+                      {player.score}
+                    </motion.span>
+                    {player.streak > 1 && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="text-[10px] font-bold text-orange-400 mt-0.5"
+                      >
+                        🔥 x{player.streak}
+                      </motion.div>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )

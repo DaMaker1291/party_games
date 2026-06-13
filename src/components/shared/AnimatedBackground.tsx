@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 
 interface Particle {
@@ -9,42 +9,38 @@ interface Particle {
   color: string
   duration: number
   delay: number
+  driftX: number
+  driftY: number
 }
 
-const COLORS = ['#ff2d95', '#00d4ff', '#39ff14', '#bf00ff', '#ffea00', '#ff6a00']
+const COLORS = ['#ff2d95', '#00d4ff', '#bf00ff', '#39ff14', '#ffea00', '#ff6a00']
 
 export default function AnimatedBackground() {
   const [particles, setParticles] = useState<Particle[]>([])
 
   useEffect(() => {
-    const newParticles: Particle[] = Array.from({ length: 20 }, (_, i) => ({
+    const newParticles: Particle[] = Array.from({ length: 30 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 4 + 2,
+      size: Math.random() * 3 + 1,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      duration: Math.random() * 10 + 10,
-      delay: Math.random() * 5,
+      duration: Math.random() * 15 + 15,
+      delay: Math.random() * 10,
+      driftX: (Math.random() - 0.5) * 20,
+      driftY: (Math.random() - 0.5) * 20,
     }))
-
     setParticles(newParticles)
-
-    const interval = setInterval(() => {
-      setParticles((prev) =>
-        prev.map((p) => ({
-          ...p,
-          x: Math.random() * 100,
-          y: Math.random() * 100,
-          duration: Math.random() * 10 + 10,
-        }))
-      )
-    }, 15000)
-
-    return () => clearInterval(interval)
   }, [])
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+      {/* Gradient orbs */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-neon-pink/10 rounded-full blur-[120px]" />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-neon-blue/10 rounded-full blur-[120px]" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-neon-purple/5 rounded-full blur-[150px]" />
+
+      {/* Particles */}
       {particles.map((p) => (
         <motion.div
           key={p.id}
@@ -53,11 +49,13 @@ export default function AnimatedBackground() {
             width: p.size,
             height: p.size,
             backgroundColor: p.color,
+            boxShadow: `0 0 ${p.size * 4}px ${p.color}40, 0 0 ${p.size * 8}px ${p.color}20`,
           }}
           animate={{
-            x: [`${p.x}vw`, `${(p.x + 20) % 100}vw`, `${p.x}vw`],
-            y: [`${p.y}vh`, `${(p.y + 20) % 100}vh`, `${p.y}vh`],
-            opacity: [0.1, 0.3, 0.1],
+            x: [0, p.driftX, 0],
+            y: [0, p.driftY, 0],
+            opacity: [0.15, 0.4, 0.15],
+            scale: [1, 1.2, 1],
           }}
           transition={{
             duration: p.duration,
@@ -67,7 +65,21 @@ export default function AnimatedBackground() {
           }}
         />
       ))}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-dark-900/30 to-dark-900" />
+
+      {/* Grid lines */}
+      <div
+        className="absolute inset-0 opacity-[0.015]"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+          `,
+          backgroundSize: '60px 60px',
+        }}
+      />
+
+      {/* Noise overlay */}
+      <div className="noise-overlay" />
     </div>
   )
 }

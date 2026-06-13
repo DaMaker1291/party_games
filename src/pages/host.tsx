@@ -16,9 +16,9 @@ import { getCurrentTimer, getCurrentPlayer } from '../lib/gameUtils'
 
 export default function Host() {
   const router = useRouter()
-  const { socket, connected } = useSocket()
+  const { connected } = useSocket()
   const {
-    room, setRoom, playerId, isHost,
+    room, playerId, isHost,
     createRoom, addPassAndPlayPlayer, startGame,
     submitAnswer, nextTurn, timerExpired, useSabotage,
   } = useGameRoom()
@@ -32,8 +32,8 @@ export default function Host() {
   const [showModeSelect, setShowModeSelect] = useState(true)
   const [gameStarted, setGameStarted] = useState(false)
   const [connecting, setConnecting] = useState(false)
-  const roomCode = room?.code || ''
   const creatingRef = useRef(false)
+  const [copied, setCopied] = useState(false)
 
   const currentPlayer = room ? getCurrentPlayer(room) : undefined
   const isMyTurn = currentPlayer?.id === playerId
@@ -59,12 +59,11 @@ export default function Host() {
       timer.reset(getCurrentTimer(room))
       timer.start()
     }
-  }, [room?.currentRound, room?.state])
+  }, [room?.currentRound, room?.state, timer])
 
   useEffect(() => {
-    if (room?.state === 'game-over') {
-      timer.stop()
-    }
+    if (room?.state === 'game-over') timer.stop()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.state])
 
   const handleModeSelect = useCallback(async (mode: 'pass-and-play' | 'multi-device') => {
@@ -77,19 +76,14 @@ export default function Host() {
     if (!s?.connected) {
       await new Promise<void>((resolve) => {
         const check = setInterval(() => {
-          if (getSocket()?.connected) {
-            clearInterval(check)
-            resolve()
-          }
+          if (getSocket()?.connected) { clearInterval(check); resolve() }
         }, 100)
-        setTimeout(() => clearInterval(check), 5000)
+        setTimeout(() => clearInterval(check), 8000)
       })
     }
 
     const result = await createRoom(playerName.trim(), mode)
-    if (result.success) {
-      setShowModeSelect(false)
-    }
+    if (result.success) setShowModeSelect(false)
     setConnecting(false)
     creatingRef.current = false
   }, [playerName, createRoom])
@@ -112,10 +106,7 @@ export default function Host() {
     timer.stop()
     const result = await submitAnswer(room.code, playerId, answerIndex)
     if (result.success) {
-      setAnswerResult({
-        correct: result.correct || false,
-        points: result.pointsEarned || 0,
-      })
+      setAnswerResult({ correct: result.correct || false, points: result.pointsEarned || 0 })
       setCurrentStreak(result.correct ? (s) => s + 1 : 0)
     }
   }
@@ -132,19 +123,36 @@ export default function Host() {
     await useSabotage(room.code, targetPlayerId, sabotageId)
   }
 
+  const copyRoomCode = () => {
+    if (room?.code) {
+      navigator.clipboard.writeText(room.code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   const handlePlayAgain = () => window.location.reload()
 
+  // ── Mode Select Screen ──
   if (showModeSelect) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8 relative">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full"
+          transition={{ duration: 0.5, ease: [0.175, 0.885, 0.32, 1.275] }}
+          className="w-full max-w-sm"
         >
           <div className="text-center mb-8">
-            <div className="text-5xl mb-4">🎮</div>
-            <h1 className="text-2xl font-display gradient-text">Create Game</h1>
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-6xl mb-6"
+            >
+              🎮
+            </motion.div>
+            <h1 className="text-3xl font-black gradient-text">Create Game</h1>
+            <p className="text-white/30 text-sm mt-2">Set up your party</p>
           </div>
 
           <Input
@@ -158,18 +166,16 @@ export default function Host() {
           />
 
           <div className="flex flex-col gap-3">
-            <h2 className="text-sm font-bold text-white/40 uppercase tracking-wider text-center">
-              Game Mode
-            </h2>
             <Button
               onClick={() => handleModeSelect('pass-and-play')}
               variant="primary"
-              size="lg"
+              size="xl"
               fullWidth
               icon="📱"
               disabled={!playerName.trim() || connecting}
+              loading={connecting}
             >
-              {connecting ? 'Connecting...' : 'Pass & Play'}
+              Pass & Play
             </Button>
             <Button
               onClick={() => handleModeSelect('multi-device')}
@@ -178,8 +184,9 @@ export default function Host() {
               fullWidth
               icon="🔄"
               disabled={!playerName.trim() || connecting}
+              loading={connecting}
             >
-              {connecting ? 'Connecting...' : 'Multi-Device'}
+              Multi-Device
             </Button>
           </div>
         </motion.div>
@@ -187,56 +194,77 @@ export default function Host() {
     )
   }
 
+  // ── Loading ──
   if (!room) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center gap-4">
         <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="text-4xl"
+          animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+          className="text-5xl"
         >
           🎲
         </motion.div>
-        <p className="text-white/40 text-sm ml-3">Creating room...</p>
+        <p className="text-white/30 text-sm animate-pulse">Creating room...</p>
       </div>
     )
   }
 
+  // ── Lobby ──
   if (room.state === 'lobby') {
     return (
-      <div className="flex-1 flex flex-col px-6 py-8 gap-6">
+      <div className="flex-1 flex flex-col px-6 py-6 gap-5 relative">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
           <div className="text-4xl mb-2">🎉</div>
-          <h1 className="text-xl font-display gradient-text">Lobby</h1>
+          <h1 className="text-2xl font-black gradient-text">Game Lobby</h1>
+          <p className="text-white/30 text-xs mt-1">
+            {gameMode === 'pass-and-play' ? 'Pass the phone around!' : 'Share the code below!'}
+          </p>
         </motion.div>
 
         {gameMode === 'multi-device' && (
-          <Card variant="neon" className="text-center">
-            <p className="text-xs uppercase tracking-widest text-neon-blue font-bold mb-2">
-              Room Code
-            </p>
-            <h2 className="text-3xl font-display tracking-widest text-neon-yellow">
-              {room.code}
-            </h2>
-            <p className="text-xs text-white/40 mt-2">
-              Share this code with friends to join!
-            </p>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card variant="neon-blue" glow className="text-center !p-4">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-neon-blue font-semibold mb-2">
+                Room Code
+              </p>
+              <motion.button
+                onClick={copyRoomCode}
+                whileTap={{ scale: 0.95 }}
+                className="group relative inline-flex items-center gap-3"
+              >
+                <h2 className="text-4xl font-black tracking-[0.15em] text-white font-mono">
+                  {room.code}
+                </h2>
+                <span className="text-xs text-white/20 group-hover:text-white/60 transition-colors">
+                  {copied ? '✅ Copied!' : '📋 Copy'}
+                </span>
+              </motion.button>
+              <p className="text-xs text-white/20 mt-3">
+                Friends scan the QR or enter code at the join page
+              </p>
+            </Card>
+          </motion.div>
         )}
 
-        <div className="flex-1">
-          <PlayerList
-            players={room.players}
-            isHost={isHost}
-          />
+        <div className="flex-1 overflow-y-auto">
+          <PlayerList players={room.players} isHost={isHost} />
         </div>
 
         {isHost && (
-          <div className="flex flex-col gap-3">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col gap-3"
+          >
             <Input
               value={newPlayerName}
               onChange={setNewPlayerName}
@@ -245,30 +273,24 @@ export default function Host() {
               icon="👤"
               onSubmit={handleAddPlayer}
             />
-
             <div className="flex gap-2">
-              <Button
-                onClick={() => router.push('/')}
-                variant="ghost"
-                className="flex-1"
-              >
-                Leave
-              </Button>
+              <Button onClick={() => router.push('/')} variant="ghost" className="flex-1">Leave</Button>
               <Button
                 onClick={handleStartGame}
                 variant="primary"
                 size="lg"
                 className="flex-1"
                 disabled={room.players.length < 2}
+                icon={room.players.length >= 2 ? '🚀' : undefined}
               >
-                {room.players.length < 2 ? 'Need 2+ Players' : 'Start Game!'}
+                {room.players.length < 2 ? `Need 2+ Players (${room.players.length})` : 'Start Game!'}
               </Button>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {!connected && (
-          <div className="text-center text-red-400 text-sm">
+          <div className="text-center text-red-400/80 text-xs bg-red-500/5 rounded-xl py-2">
             ⚠️ Connection lost. Reconnecting...
           </div>
         )}
@@ -276,110 +298,185 @@ export default function Host() {
     )
   }
 
+  // ── Game Over ──
   if (room.state === 'game-over') {
     const sorted = [...room.players].sort((a, b) => b.score - a.score)
     return (
-      <div className="flex-1 flex flex-col px-6 py-8 gap-6">
+      <div className="flex-1 flex flex-col px-6 py-8 gap-6 relative">
+        {/* Confetti */}
+        {Array.from({ length: 30 }).map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute pointer-events-none text-lg"
+            initial={{ x: Math.random() * 100 + '%', y: -20, rotate: 0, scale: 0 }}
+            animate={{
+              y: '100vh',
+              rotate: 720,
+              scale: [0, 1, 1, 0],
+            }}
+            transition={{
+              duration: 2 + Math.random() * 2,
+              delay: Math.random() * 1.5,
+              ease: 'easeIn',
+            }}
+          >
+            {['🎉', '✨', '⭐', '🎊', '💫', '🌟', '🎆'][i % 7]}
+          </motion.div>
+        ))}
+
         <motion.div
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, ease: [0.175, 0.885, 0.32, 1.275] }}
           className="text-center"
         >
-          <div className="text-6xl mb-4">🏆</div>
-          <h1 className="text-2xl font-display gradient-text mb-2">Game Over!</h1>
-          <p className="text-white/40 text-sm">{room.players.length} players battled</p>
+          <motion.div
+            animate={{ rotate: [0, -10, 10, -10, 0] }}
+            transition={{ duration: 1, delay: 0.5 }}
+            className="text-7xl mb-4"
+          >
+            🏆
+          </motion.div>
+          <h1 className="text-3xl font-black gradient-text mb-1">Game Over!</h1>
+          <p className="text-white/30 text-sm">{room.players.length} players battled</p>
         </motion.div>
 
         <div className="flex-1">
-          <Card variant="glass">
-            <div className="flex flex-col gap-3">
-              {sorted.map((player, index) => (
-                <motion.div
-                  key={player.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`
-                    flex items-center justify-between p-4 rounded-xl
-                    ${index === 0 ? 'bg-neon-yellow/10 border border-neon-yellow/30' : 'bg-dark-700/50'}
-                  `}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">
-                      {index === 0 ? '👑' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
-                    </span>
-                    <div>
-                      <span className="font-bold">{player.name}</span>
-                      {!player.isAlive && <span className="text-red-400 text-xs ml-2">💀</span>}
+          <Card variant="glass-strong" className="!p-4">
+            <div className="flex flex-col gap-2">
+              {sorted.map((player, index) => {
+                const podiums = ['👑', '🥈', '🥉']
+                const isTop3 = index < 3
+                return (
+                  <motion.div
+                    key={player.id}
+                    initial={{ opacity: 0, x: -30, scale: 0.9 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    transition={{ delay: index * 0.1, ease: [0.175, 0.885, 0.32, 1.275] }}
+                    className={`
+                      flex items-center justify-between p-4 rounded-xl
+                      ${isTop3
+                        ? `bg-gradient-to-r ${['from-yellow-500/10', 'from-gray-300/10', 'from-amber-600/10'][index]} border border-white/10`
+                        : 'bg-white/[0.02] border border-white/[0.04]'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="text-2xl flex-shrink-0">
+                        {isTop3 ? podiums[index] : `#${index + 1}`}
+                      </span>
+                      <div className="min-w-0">
+                        <span className="font-bold text-base truncate block">{player.name}</span>
+                        <span className="text-xs text-white/30">
+                          {player.isAlive ? 'Survived! 🎉' : 'Eliminated 💀'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <span className="text-xl font-bold gradient-text">{player.score}</span>
-                </motion.div>
-              ))}
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.3 + index * 0.1, type: 'spring' }}
+                      className={`text-2xl font-black flex-shrink-0 ${index === 0 ? 'gradient-text-gold' : index <= 2 ? 'text-white' : 'text-white/40'}`}
+                    >
+                      {player.score}
+                    </motion.span>
+                  </motion.div>
+                )
+              })}
             </div>
           </Card>
         </div>
 
-        <Button onClick={handlePlayAgain} size="lg" fullWidth icon="🔄">
-          Play Again
-        </Button>
-
-        <Button onClick={() => router.push('/')} variant="ghost" fullWidth>
-          Back to Menu
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button onClick={handlePlayAgain} variant="primary" size="lg" fullWidth icon="🔄">
+            Play Again
+          </Button>
+          <Button onClick={() => router.push('/')} variant="ghost" fullWidth>
+            Back to Menu
+          </Button>
+        </div>
       </div>
     )
   }
 
+  // ── Game Playing ──
   return (
-    <div className="flex-1 flex flex-col px-6 py-4 gap-4">
+    <div className="flex-1 flex flex-col px-5 py-4 gap-4 relative">
       <StreakEffect streak={currentStreak} />
 
+      {/* Top bar */}
       <div className="flex items-center justify-between">
-        <div className="text-sm font-bold text-white/40">
-          Round {room.currentRound}/{room.maxRounds}
+        <div className="flex items-center gap-2">
+          <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/[0.06]">
+            <span className="text-xs font-bold text-white/40">
+              Round <span className="text-white/70">{room.currentRound}</span>
+              <span className="text-white/20">/</span>
+              <span className="text-white/30">{room.maxRounds}</span>
+            </span>
+          </div>
         </div>
         <div className="text-right">
-          <div className="text-xs text-white/40">Current Player</div>
+          <div className="text-[10px] text-white/30 uppercase tracking-wider">Playing</div>
           <motion.div
             key={currentPlayer?.id}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="font-bold text-neon-blue"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="font-bold text-sm text-neon-blue"
           >
             {currentPlayer?.name}
           </motion.div>
         </div>
       </div>
 
-      <TimerBar
-        timeLeft={timer.timeLeft}
-        totalTime={timerSeconds}
-        paused={!gameStarted || room.state !== 'playing'}
-      />
+      {/* Timer */}
+      <TimerBar timeLeft={timer.timeLeft} totalTime={timerSeconds} paused={room.state !== 'playing'} />
 
+      {/* Main content */}
       <div className="flex-1 flex flex-col justify-center">
         <AnimatePresence mode="wait">
           {answerResult ? (
             <motion.div
               key="result"
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ type: 'spring', damping: 15 }}
               className="text-center"
             >
-              <div className={`text-7xl mb-4 ${answerResult.correct ? 'animate-bounce-in' : 'animate-shake'}`}>
+              <motion.div
+                initial={{ rotate: -180, scale: 0 }}
+                animate={{ rotate: 0, scale: 1 }}
+                transition={{ type: 'spring', damping: 10 }}
+                className={`text-8xl mb-5 ${answerResult.correct ? '' : 'animate-shake'}`}
+              >
                 {answerResult.correct ? '✅' : '💥'}
-              </div>
-              <h2 className={`text-2xl font-display mb-2 ${answerResult.correct ? 'text-neon-green' : 'text-red-400'}`}>
-                {answerResult.correct ? 'CORRECT!' : 'OOPS!'}
-              </h2>
+              </motion.div>
+              <motion.h2
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className={`text-3xl font-black mb-2 ${answerResult.correct ? 'text-emerald-400' : 'text-red-400'}`}
+              >
+                {answerResult.correct ? 'CORRECT!' : 'WRONG!'}
+              </motion.h2>
               {answerResult.correct && (
-                <p className="text-neon-yellow font-bold text-lg">+{answerResult.points} pts</p>
+                <motion.p
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-2xl font-black gradient-text-gold"
+                >
+                  +{answerResult.points} pts
+                </motion.p>
               )}
 
               {isHost && (
-                <div className="flex flex-col gap-3 mt-6">
+                <motion.div
+                  initial={{ y: 30, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                  className="flex flex-col gap-3 mt-8"
+                >
                   {showSabotage && (
                     <SabotagePanel
                       players={room.players}
@@ -393,8 +490,9 @@ export default function Host() {
                       variant="secondary"
                       icon="⚡"
                       className="flex-1"
+                      size="md"
                     >
-                      {showSabotage ? 'Hide' : 'Sabotage'}
+                      {showSabotage ? 'Cancel' : 'Sabotage'}
                     </Button>
                     <Button
                       onClick={handleNextTurn}
@@ -406,30 +504,41 @@ export default function Host() {
                       Next Player
                     </Button>
                   </div>
-                </div>
+                </motion.div>
               )}
             </motion.div>
           ) : (
             <motion.div
-              key="question"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              key={`q-${room.currentRound}`}
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.3 }}
             >
-              <QuestionCard
-                question={room.currentQuestion!}
-                onAnswer={handleAnswer}
-                disabled={!isMyTurn}
-              />
+              {room.currentQuestion && (
+                <QuestionCard
+                  question={room.currentQuestion}
+                  onAnswer={handleAnswer}
+                  disabled={!isMyTurn}
+                />
+              )}
+              {!isMyTurn && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-center text-white/20 text-sm mt-6"
+                >
+                  Pass the phone to <span className="text-neon-blue font-bold">{currentPlayer?.name}</span>
+                </motion.p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <ScoreBoard
-        players={room.players}
-        currentPlayerId={currentPlayer?.id}
-      />
+      {/* Bottom scoreboard */}
+      <ScoreBoard players={room.players} currentPlayerId={currentPlayer?.id} compact />
     </div>
   )
 }
