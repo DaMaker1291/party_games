@@ -34,6 +34,7 @@ export default function Host() {
   const [connecting, setConnecting] = useState(false)
   const creatingRef = useRef(false)
   const [copied, setCopied] = useState(false)
+  const lastQuestionTypeRef = useRef<string>('trivia')
 
   const currentPlayer = room ? getCurrentPlayer(room) : undefined
   const isMyTurn = currentPlayer?.id === playerId
@@ -99,6 +100,7 @@ export default function Host() {
   const handleAnswer = async (answerIndex: number) => {
     if (!room || !playerId) return
     timer.stop()
+    if (room.currentQuestion) lastQuestionTypeRef.current = room.currentQuestion.type
     const result = await submitAnswer(room.code, playerId, answerIndex)
     if (result.success) {
       setAnswerResult({ correct: result.correct || false, points: result.pointsEarned || 0 })
@@ -438,32 +440,49 @@ export default function Host() {
               transition={{ type: 'spring', damping: 15 }}
               className="text-center"
             >
-              <motion.div
-                initial={{ rotate: -180, scale: 0 }}
-                animate={{ rotate: 0, scale: 1 }}
-                transition={{ type: 'spring', damping: 10 }}
-                className={`text-8xl mb-5 ${answerResult.correct ? '' : 'animate-shake'}`}
-              >
-                {answerResult.correct ? '✅' : '💥'}
-              </motion.div>
-              <motion.h2
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className={`text-3xl font-black mb-2 ${answerResult.correct ? 'text-emerald-400' : 'text-red-400'}`}
-              >
-                {answerResult.correct ? 'CORRECT!' : 'WRONG!'}
-              </motion.h2>
-              {answerResult.correct && (
-                <motion.p
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-2xl font-black gradient-text-gold"
-                >
-                  +{answerResult.points} pts
-                </motion.p>
-              )}
+              {(() => {
+                const isOpinion = !['trivia', 'finish-the-lyric'].includes(lastQuestionTypeRef.current)
+                const resultEmoji = isOpinion ? '🎉' : answerResult.correct ? '✅' : '💥'
+                const resultText = isOpinion
+                  ? 'You picked!'
+                  : answerResult.correct
+                    ? 'CORRECT!'
+                    : 'WRONG!'
+                const resultColor = isOpinion
+                  ? 'text-purple-400'
+                  : answerResult.correct
+                    ? 'text-emerald-400'
+                    : 'text-red-400'
+
+                return <>
+                  <motion.div
+                    initial={{ rotate: -180, scale: 0 }}
+                    animate={{ rotate: 0, scale: 1 }}
+                    transition={{ type: 'spring', damping: 10 }}
+                    className={`text-8xl mb-5 ${answerResult.correct || isOpinion ? '' : 'animate-shake'}`}
+                  >
+                    {resultEmoji}
+                  </motion.div>
+                  <motion.h2
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className={`text-3xl font-black mb-2 ${resultColor}`}
+                  >
+                    {resultText}
+                  </motion.h2>
+                  {answerResult.points > 0 && (
+                    <motion.p
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-2xl font-black gradient-text-gold"
+                    >
+                      +{answerResult.points} pts
+                    </motion.p>
+                  )}
+                </>
+              })()}
 
               {isHost && (
                 <motion.div
