@@ -171,33 +171,47 @@ export function answerQuestion(
   const player = room.players.find((p) => p.id === playerId)
   if (!player) throw new Error('Player not found')
 
-  const isCorrect =
-    room.currentQuestion.options[answerIndex] === room.currentQuestion.answer ||
-    room.currentQuestion.answer === ''
+  const q = room.currentQuestion
+  const hasCorrectAnswer = q.hasCorrectAnswer
 
+  let isCorrect = true
   let pointsEarned = 0
 
-  if (isCorrect) {
+  if (hasCorrectAnswer) {
+    isCorrect =
+      answerIndex < q.options.length && q.options[answerIndex] === q.answer
+
+    if (isCorrect) {
+      player.streak++
+      pointsEarned = SCORING.correctAnswer
+
+      if (player.streak > 1) {
+        pointsEarned += player.streak * SCORING.streakMultiplier
+      }
+
+      const timeTaken = (Date.now() - room.roundStartTime) / 1000
+      if (timeTaken < 5) {
+        pointsEarned += SCORING.speedBonus
+      }
+
+      player.score += pointsEarned
+    } else {
+      player.lives--
+      player.streak = 0
+
+      if (player.lives <= 0) {
+        player.isAlive = false
+      }
+    }
+  } else {
     player.streak++
-    pointsEarned = SCORING.correctAnswer
+    pointsEarned = SCORING.participation
 
     if (player.streak > 1) {
       pointsEarned += player.streak * SCORING.streakMultiplier
     }
 
-    const timeTaken = (Date.now() - room.roundStartTime) / 1000
-    if (timeTaken < 5) {
-      pointsEarned += SCORING.speedBonus
-    }
-
     player.score += pointsEarned
-  } else {
-    player.lives--
-    player.streak = 0
-
-    if (player.lives <= 0) {
-      player.isAlive = false
-    }
   }
 
   return { correct: isCorrect, pointsEarned, newRoom: room }

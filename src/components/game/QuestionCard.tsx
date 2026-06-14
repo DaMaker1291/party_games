@@ -16,6 +16,17 @@ const optionColors = [
   { bg: 'from-emerald-500/20 to-green-500/10', border: 'border-emerald-500/30', hover: 'hover:border-emerald-400/60', glow: 'shadow-emerald-500/20', letter: 'bg-emerald-500/20 text-emerald-300' },
 ]
 
+const typeStyles: Record<string, { badge: string; bg: string; icon: string }> = {
+  'trivia': { badge: 'bg-neon-blue/10 text-neon-blue border-neon-blue/20', bg: '', icon: '❓' },
+  'would-you-rather': { badge: 'bg-purple-500/10 text-purple-300 border-purple-500/20', bg: 'bg-gradient-to-b from-purple-500/5 to-transparent', icon: '🤔' },
+  'this-or-that': { badge: 'bg-amber-500/10 text-amber-300 border-amber-500/20', bg: 'bg-gradient-to-b from-amber-500/5 to-transparent', icon: '⚔️' },
+  'challenge': { badge: 'bg-orange-500/10 text-orange-300 border-orange-500/20', bg: 'bg-gradient-to-b from-orange-500/8 to-transparent', icon: '🎤' },
+  'never-have-i-ever': { badge: 'bg-pink-500/10 text-pink-300 border-pink-500/20', bg: 'bg-gradient-to-b from-pink-500/5 to-transparent', icon: '🤫' },
+  'poll': { badge: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20', bg: '', icon: '💬' },
+  'hot-take': { badge: 'bg-red-500/10 text-red-300 border-red-500/20', bg: 'bg-gradient-to-b from-red-500/5 to-transparent', icon: '🔥' },
+  'finish-the-lyric': { badge: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20', bg: '', icon: '✍️' },
+}
+
 export default function QuestionCard({
   question,
   onAnswer,
@@ -23,20 +34,22 @@ export default function QuestionCard({
   showCorrect = false,
   correctIndex,
 }: QuestionCardProps) {
+  const style = typeStyles[question.type] || typeStyles['trivia']
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full"
+      className={`w-full rounded-2xl p-6 ${style.bg}`}
     >
       <div className="text-center mb-8">
         <motion.span
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-[0.15em] bg-white/5 text-neon-blue border border-neon-blue/20 mb-4"
+          className={`inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-[0.15em] border ${style.badge} mb-4`}
         >
-          {question.category}
+          {style.icon} {question.category}
         </motion.span>
         <motion.h2
           initial={{ opacity: 0, y: 10 }}
@@ -46,13 +59,23 @@ export default function QuestionCard({
         >
           {question.prompt}
         </motion.h2>
+        {!question.hasCorrectAnswer && question.type !== 'trivia' && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.25 }}
+            className="text-xs text-white/30 mt-3 italic"
+          >
+            No wrong answer — just pick your vibe
+          </motion.p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3">
         {question.options.map((option, index) => {
           const colors = optionColors[index]
           const isCorrect = showCorrect && correctIndex === index
-          const isWrong = showCorrect && correctIndex !== index
+          const isWrong = showCorrect && correctIndex !== index && question.hasCorrectAnswer
 
           return (
             <motion.button

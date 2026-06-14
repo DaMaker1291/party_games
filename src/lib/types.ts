@@ -9,13 +9,24 @@ export interface Player {
   connected: boolean
 }
 
+export type QuestionType =
+  | 'trivia'
+  | 'this-or-that'
+  | 'challenge'
+  | 'never-have-i-ever'
+  | 'poll'
+  | 'would-you-rather'
+  | 'finish-the-lyric'
+  | 'hot-take'
+
 export interface Question {
   id: string
   prompt: string
-  answer: string
+  answer?: string
   options: string[]
   category: string
-  type: 'trivia' | 'truth' | 'challenge' | 'dare'
+  type: QuestionType
+  hasCorrectAnswer: boolean
 }
 
 export interface Sabotage {
@@ -118,6 +129,7 @@ export const GAME_DEFAULTS: GameSettings = {
 
 export const SCORING = {
   correctAnswer: 100,
+  participation: 75,
   streakMultiplier: 50,
   speedBonus: 25,
   sabotageUse: 75,
